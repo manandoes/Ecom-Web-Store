@@ -1,9 +1,9 @@
 "use client";
 
-import { type FC, type ReactNode } from "react";
+import { type FC, type ReactNode, useState } from "react";
 import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { CartSync } from "./CartSync";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -24,7 +24,10 @@ export const Providers: FC<ProvidersProps> = ({ children }) => {
 
   return (
     <SessionProvider>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <CartSync />
+        {children}
+      </QueryClientProvider>
     </SessionProvider>
   );
 };

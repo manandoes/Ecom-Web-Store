@@ -16,7 +16,7 @@ import { useCartStore } from "@/store/cartStore";
 import { formatCurrency } from "@/lib/utils/currency";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { validateCheckoutAction, createOrderAction } from "@/lib/actions/checkout";
+import { validateCheckoutAction, createOrderAction, validateCouponAction } from "@/lib/actions/checkout";
 
 const steps = [
   { id: "shipping", label: "Shipping", icon: MapPin },
@@ -26,7 +26,9 @@ const steps = [
 ];
 
 export default function CheckoutPage() {
-  const { items, totalItems, totalPrice } = useCartStore();
+  const { items, getItemCount, getSubtotal } = useCartStore();
+  const totalItems = getItemCount();
+  const totalPrice = getSubtotal();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,13 +47,42 @@ export default function CheckoutPage() {
     giftMessage: "",
   });
 
+  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "cod">("razorpay");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
+
   const updateField = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+    setCouponLoading(true);
+    setCouponError("");
+    
+    const res = await validateCouponAction(couponCode, totalPrice);
+    if (res.error) {
+      setCouponError(res.error);
+    } else if (res.success && res.coupon) {
+      setAppliedCoupon({
+        code: res.coupon.code,
+        discountAmount: res.coupon.discountAmount,
+      });
+      setCouponCode("");
+    }
+    setCouponLoading(false);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+  };
+
   const shippingCost =
     formData.shippingMethod === "express" ? 149 : totalPrice >= 999 ? 0 : 79;
-  const orderTotal = totalPrice + shippingCost;
+  const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const orderTotal = Math.max(0, totalPrice - discountAmount + shippingCost);
 
   const canProceed = () => {
     if (currentStep === 0) {
@@ -85,22 +116,39 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 2. Create Razorpay Order
-      const res = await fetch("/api/v1/checkout/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shippingMethod: formData.shippingMethod }),
+      if (paymentMethod === "razorpay") {
+        // 2. Create Razorpay Order
+        const res = await fetch("/api/v1/checkout/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: orderTotal }),
+        });
+        const razorpayOrder = await res.json();
+
+        if (razorpayOrder.error) {
+          alert(razorpayOrder.error);
+          setIsProcessing(false);
+          return;
+        }
+
+        // 3. Create Internal DB Order
+        const internalOrder = await createOrderAction({
+          email: formData.email,
+          shippingMethod: formData.shippingMethod,
+          couponCode: appliedCoupon?.code,
+          isGift: formData.isGift,
+        giftMessage: formData.giftMessage,
+        shippingAddress: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+          line1: formData.line1,
+          line2: formData.line2,
+          city: formData.city,
+          state: formData.state,
+          pinCode: formData.pinCode,
+        },
       });
-      const razorpayOrder = await res.json();
-
-      if (razorpayOrder.error) {
-        alert(razorpayOrder.error);
-        setIsProcessing(false);
-        return;
-      }
-
-      // 3. Create Internal DB Order
-      const internalOrder = await createOrderAction(formData);
       if (internalOrder.error) {
         alert(internalOrder.error);
         setIsProcessing(false);
@@ -160,6 +208,33 @@ export default function CheckoutPage() {
         setIsProcessing(false);
       });
       rzp.open();
+      } else if (paymentMethod === "cod") {
+        // Handle Cash on Delivery flow directly
+        const internalOrder = await createOrderAction({
+          email: formData.email,
+          shippingMethod: formData.shippingMethod,
+          couponCode: appliedCoupon?.code,
+          isGift: formData.isGift,
+          giftMessage: formData.giftMessage,
+          shippingAddress: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phone: formData.phone,
+            line1: formData.line1,
+            line2: formData.line2,
+            city: formData.city,
+            state: formData.state,
+            pinCode: formData.pinCode,
+          },
+        });
+        if (internalOrder.error) {
+          alert(internalOrder.error);
+          setIsProcessing(false);
+          return;
+        }
+
+        router.push(`/order-confirmation?order=${internalOrder.orderNumber}`);
+      }
       
     } catch (e) {
       alert("Something went wrong");
@@ -466,9 +541,16 @@ export default function CheckoutPage() {
                   Payment
                 </h2>
                 <div className="space-y-3">
-                  <div className="p-5 rounded-2xl border-2 border-[var(--color-lumina-dark)] bg-[var(--color-lumina-cream-dark)]">
+                  <button
+                    onClick={() => setPaymentMethod("razorpay")}
+                    className={`p-5 rounded-2xl border-2 transition-all text-left w-full ${
+                      paymentMethod === "razorpay"
+                        ? "border-[var(--color-lumina-dark)] bg-[var(--color-lumina-cream-dark)]"
+                        : "border-[var(--color-lumina-border)] hover:border-[var(--color-lumina-text-muted)]"
+                    }`}
+                  >
                     <div className="flex items-center gap-4">
-                      <CreditCard className="w-5 h-5" />
+                      <CreditCard className={`w-5 h-5 ${paymentMethod === "razorpay" ? "" : "text-[var(--color-lumina-text-muted)]"}`} />
                       <div>
                         <p className="text-sm font-medium">
                           Pay with Razorpay
@@ -478,10 +560,17 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-5 rounded-2xl border-2 border-[var(--color-lumina-border)]">
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("cod")}
+                    className={`p-5 rounded-2xl border-2 transition-all text-left w-full ${
+                      paymentMethod === "cod"
+                        ? "border-[var(--color-lumina-dark)] bg-[var(--color-lumina-cream-dark)]"
+                        : "border-[var(--color-lumina-border)] hover:border-[var(--color-lumina-text-muted)]"
+                    }`}
+                  >
                     <div className="flex items-center gap-4">
-                      <Truck className="w-5 h-5 text-[var(--color-lumina-text-muted)]" />
+                      <Truck className={`w-5 h-5 ${paymentMethod === "cod" ? "" : "text-[var(--color-lumina-text-muted)]"}`} />
                       <div>
                         <p className="text-sm font-medium">
                           Cash on Delivery
@@ -491,7 +580,7 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-[var(--color-lumina-text-muted)]">
                   <ShieldCheck className="w-4 h-4" />
@@ -637,12 +726,46 @@ export default function CheckoutPage() {
                       : formatCurrency(shippingCost.toFixed(2))}
                   </span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span className="flex items-center gap-1">
+                      Discount ({appliedCoupon.code})
+                      <button onClick={handleRemoveCoupon} className="text-xs text-red-500 hover:text-red-700 ml-2 border-b border-transparent hover:border-red-700">
+                        Remove
+                      </button>
+                    </span>
+                    <span>-{formatCurrency(appliedCoupon.discountAmount.toFixed(2))}</span>
+                  </div>
+                )}
                 {totalPrice >= 999 && shippingCost === 0 && (
                   <p className="text-xs text-green-600">
                     🎉 Free shipping on orders above ₹999
                   </p>
                 )}
               </div>
+
+              {/* Coupon Code Input */}
+              {!appliedCoupon && (
+                <div className="border-t border-[var(--color-lumina-border)] pt-4 mt-4">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      placeholder="Coupon Code" 
+                      className="w-full h-10 px-3 rounded-lg border border-[var(--color-lumina-border)] bg-white focus:outline-none focus:border-[var(--color-lumina-gold)] text-sm"
+                    />
+                    <button 
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponCode}
+                      className="h-10 px-4 rounded-lg bg-[var(--color-lumina-dark)] text-white text-sm font-medium hover:bg-black transition-colors disabled:opacity-50"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {couponError && <p className="text-xs text-red-500 mt-2">{couponError}</p>}
+                </div>
+              )}
 
               <div className="border-t border-[var(--color-lumina-border)] pt-4 mt-4">
                 <div className="flex justify-between">

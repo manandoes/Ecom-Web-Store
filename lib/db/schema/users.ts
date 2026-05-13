@@ -17,6 +17,8 @@ export const users = pgTable("users", {
   role: varchar("role", { length: 20 }).notNull().default("customer"),
   phone: varchar("phone", { length: 20 }),
   marketingOptIn: boolean("marketing_opt_in").notNull().default(false),
+  resetToken: varchar("reset_token", { length: 255 }),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

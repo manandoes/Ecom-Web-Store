@@ -1,19 +1,53 @@
 "use client";
 
-import { type FC, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, User, AlertCircle } from "lucide-react";
+import { registerAction, googleSignInAction } from "@/lib/actions/auth";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("email", form.email);
+      formData.append("password", form.password);
+      formData.append("confirmPassword", form.password);
+
+      const result = await registerAction(formData);
+
+      if (result?.error) {
+        setError(result.error);
+        setIsLoading(false);
+      } else {
+        // Registration + auto-login successful
+        router.push("/");
+        router.refresh();
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await googleSignInAction();
+    } catch {
+      // Redirect happens server-side
+    }
   };
 
   return (
@@ -40,7 +74,20 @@ export default function RegisterPage() {
           <h1 className="text-2xl mb-2" style={{ fontFamily: "var(--font-display)" }}>Create Account</h1>
           <p className="text-sm text-[var(--color-lumina-text-secondary)] mb-8">Start your candle journey with us</p>
 
-          <button className="w-full h-12 rounded-full border border-[var(--color-lumina-border)] text-sm font-medium flex items-center justify-center gap-3 hover:bg-[var(--color-lumina-cream-dark)] transition-colors mb-6">
+          {/* Error Message */}
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm mb-6">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Google OAuth */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="w-full h-12 rounded-full border border-[var(--color-lumina-border)] text-sm font-medium flex items-center justify-center gap-3 hover:bg-[var(--color-lumina-cream-dark)] transition-colors mb-6"
+          >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

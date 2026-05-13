@@ -35,3 +35,8 @@ export async function getUserReviewForProduct(
     where: and(eq(reviews.userId, userId), eq(reviews.productId, productId)),
   });
 }
+
+export async function createReview(data: typeof reviews.$inferInsert) {
+  const [review] = await db.insert(reviews).values(data).returning();
+  return review;
+}

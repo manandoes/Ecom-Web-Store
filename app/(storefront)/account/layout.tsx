@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { User, Package, MapPin, Heart, Settings, LogOut } from "lucide-react";
 
+import { signOut } from "next-auth/react";
+
 const navItems = [
   { href: "/account", label: "Dashboard", icon: User },
   { href: "/account/orders", label: "Orders", icon: Package },
@@ -54,7 +56,10 @@ export default function AccountLayout({
                     </Link>
                   );
                 })}
-                <button className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors w-full">
+                <button 
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors w-full"
+                >
                   <LogOut className="w-4 h-4" />
                   Sign Out
                 </button>

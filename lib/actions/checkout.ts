@@ -4,9 +4,11 @@ import { auth } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { createOrder } from "@/lib/db/queries/orders";
 import { clearCart, getCartWithItems } from "@/lib/db/queries/cart";
-import { productVariants } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { checkoutSchema } from "@/lib/validations/checkout";
+import { productVariants, discountCodes } from "@/lib/db/schema";
+import { eq, and, gt, or, isNull, sql } from "drizzle-orm";
+import { headers } from "next/headers";
+import { checkoutRateLimit } from "@/lib/redis/ratelimit";
+import { sendOrderConfirmationEmail } from "@/lib/emails/resend";
 
 export async function validateCheckoutAction(formData: {
   email: string;
@@ -46,7 +48,8 @@ export async function validateCheckoutAction(formData: {
 
     return { success: true, valid: true };
   } catch (e: unknown) {
-    return { error: e instanceof Error ? e.message : "Validation failed" };
+    console.error("Checkout validation error:", e);
+    return { error: "Validation failed. Please try again." };
   }
 }
 
@@ -67,6 +70,14 @@ export async function createOrderAction(input: {
   isGift?: boolean;
   giftMessage?: string;
 }) {
+  const headersList = await headers();
+  const ip = headersList.get("x-forwarded-for") ?? "127.0.0.1";
+  const { success: rateLimitSuccess } = await checkoutRateLimit.limit(ip);
+  
+  if (!rateLimitSuccess) {
+    return { error: "Too many checkout requests. Please try again later." };
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     return { error: "Please log in to checkout" };
@@ -97,13 +108,41 @@ export async function createOrderAction(input: {
       };
     });
 
+    let discountAmount = 0;
+    if (input.couponCode) {
+      const coupon = await db.query.discountCodes.findFirst({
+        where: eq(discountCodes.code, input.couponCode),
+      });
+
+      if (coupon && coupon.isActive) {
+        // Validate expiry
+        const now = new Date();
+        const isValidExpiry = !coupon.expiresAt || new Date(coupon.expiresAt) > now;
+        
+        // Validate limits
+        const isValidUsage = !coupon.maxUses || coupon.usedCount < coupon.maxUses;
+        const isValidMinOrder = !coupon.minOrderValue || subtotal >= parseFloat(coupon.minOrderValue.toString());
+
+        if (isValidExpiry && isValidUsage && isValidMinOrder) {
+          if (coupon.type === "percentage") {
+            discountAmount = subtotal * (parseFloat(coupon.value.toString()) / 100);
+          } else if (coupon.type === "fixed") {
+            discountAmount = parseFloat(coupon.value.toString());
+          }
+          // Cap discount to subtotal
+          discountAmount = Math.min(discountAmount, subtotal);
+        }
+      }
+    }
+
     const shippingAmount = input.shippingMethod === "express" ? 149 : subtotal >= 999 ? 0 : 79;
-    const total = subtotal + shippingAmount;
+    const total = subtotal - discountAmount + shippingAmount;
 
     const order = await createOrder({
       userId: session.user.id,
       email: input.email,
       subtotal: subtotal.toFixed(2),
+      discountAmount: discountAmount.toFixed(2),
       shippingAmount: shippingAmount.toFixed(2),
       total: total.toFixed(2),
       shippingMethod: input.shippingMethod,
@@ -117,8 +156,73 @@ export async function createOrderAction(input: {
     // Clear the cart
     await clearCart(session.user.id);
 
+    // Fire-and-forget: send order confirmation email
+    sendOrderConfirmationEmail(input.email, {
+      orderNumber: order.orderNumber,
+      customerName: `${input.shippingAddress.firstName} ${input.shippingAddress.lastName}`,
+      total: total.toFixed(2),
+      items: orderItems.map((item) => ({
+        name: item.productName,
+        variant: item.variantName,
+        quantity: item.quantity,
+        price: item.unitPrice,
+      })),
+    }).catch((err) => console.error("Order confirmation email failed:", err));
+
     return { success: true, orderNumber: order.orderNumber, orderId: order.id };
   } catch (e: unknown) {
-    return { error: e instanceof Error ? e.message : "Order creation failed" };
+    console.error("Order creation error:", e);
+    return { error: "Order creation failed. Please contact support if the issue persists." };
+  }
+}
+
+export async function validateCouponAction(code: string, cartTotal: number) {
+  try {
+    const coupon = await db.query.discountCodes.findFirst({
+      where: eq(discountCodes.code, code.toUpperCase()),
+    });
+
+    if (!coupon) {
+      return { error: "Invalid coupon code." };
+    }
+
+    if (!coupon.isActive) {
+      return { error: "This coupon is no longer active." };
+    }
+
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+      return { error: "This coupon has expired." };
+    }
+
+    if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+      return { error: "This coupon has reached its usage limit." };
+    }
+
+    if (coupon.minOrderValue && cartTotal < parseFloat(coupon.minOrderValue.toString())) {
+      return { error: `Minimum order value of ₹${coupon.minOrderValue} required.` };
+    }
+
+    let discountAmount = 0;
+    if (coupon.type === "percentage") {
+      discountAmount = cartTotal * (parseFloat(coupon.value.toString()) / 100);
+    } else if (coupon.type === "fixed") {
+      discountAmount = parseFloat(coupon.value.toString());
+    }
+
+    // Cap at cart total
+    discountAmount = Math.min(discountAmount, cartTotal);
+
+    return { 
+      success: true, 
+      coupon: {
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+        discountAmount,
+      } 
+    };
+  } catch (error) {
+    console.error("Coupon validation error:", error);
+    return { error: "Failed to validate coupon." };
   }
 }

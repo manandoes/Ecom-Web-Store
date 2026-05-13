@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Search, SlidersHorizontal } from "lucide-react";
@@ -15,7 +15,7 @@ const demoProducts = [
   { id: "4", name: "Rose Garden", slug: "rose-garden", scentFamily: "floral", basePrice: "749.00", avgRating: "4.9", reviewCount: 63, images: [{ url: "/images/products/rose-garden.png", altText: "Rose candle" }], variants: [{ id: "v10", name: "8oz", price: "749.00", stockQty: 7 }] },
 ];
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
   const [searchQuery, setSearchQuery] = useState(query);
@@ -85,5 +85,19 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="pt-[72px] min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[var(--color-lumina-gold)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <SearchContent />
+    </Suspense>
   );
 }

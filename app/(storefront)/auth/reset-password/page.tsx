@@ -4,14 +4,17 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, ArrowLeft } from "lucide-react";
+import { forgotPasswordAction } from "@/lib/actions/auth";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Connect to server action
+    const formData = new FormData();
+    formData.append("email", email);
+    await forgotPasswordAction(formData);
     setSubmitted(true);
   };
 

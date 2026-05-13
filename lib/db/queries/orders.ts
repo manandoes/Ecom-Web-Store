@@ -39,7 +39,7 @@ interface CreateOrderInput {
 }
 
 export async function createOrder(input: CreateOrderInput) {
-  const orderNumber = generateOrderNumber();
+  const orderNumber = await generateOrderNumber();
 
   return db.transaction(async (tx) => {
     // Create order
@@ -59,7 +59,7 @@ export async function createOrder(input: CreateOrderInput) {
         couponCode: input.couponCode,
         isGift: input.isGift || false,
         giftMessage: input.giftMessage,
-      })
+      } as typeof orders.$inferInsert)
       .returning();
 
     // Create order items

@@ -77,6 +77,32 @@ export default function ProductDetailPage() {
 
   return (
     <div className="pt-[72px]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org/",
+            "@type": "Product",
+            name: product.name,
+            image: product.images.map((img) => img.url),
+            description: product.description,
+            sku: product.variants[0]?.id,
+            offers: {
+              "@type": "AggregateOffer",
+              url: `https://lumina-candles.com/candles/${product.slug}`,
+              priceCurrency: "INR",
+              lowPrice: product.variants[0]?.price,
+              highPrice: product.variants[product.variants.length - 1]?.price,
+              offerCount: product.variants.length,
+            },
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: product.avgRating,
+              reviewCount: product.reviewCount,
+            },
+          }),
+        }}
+      />
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10 py-8">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-[13px] text-[var(--color-lumina-text-muted)] mb-8">

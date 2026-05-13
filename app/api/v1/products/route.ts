@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     const result = await getProducts({
       page,
-      perPage,
+      limit: perPage,
       sort: sort as "featured" | "newest" | "price_asc" | "price_desc" | "rating" | "best_selling",
       scentFamily,
       minPrice,

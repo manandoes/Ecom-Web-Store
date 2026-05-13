@@ -1,41 +1,41 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/lib/auth/config";
+import { NextResponse } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Check for session cookie
-  const sessionCookie =
-    request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value;
-
-  const isLoggedIn = !!sessionCookie;
+export default auth((req) => {
+  const { nextUrl } = req;
+  const isLoggedIn = !!req.auth;
+  // @ts-ignore - Assuming role is appended to the session token as verified in config.ts
+  const role = req.auth?.user?.role;
 
   // Protect /account/* routes
-  if (pathname.startsWith("/account")) {
+  if (nextUrl.pathname.startsWith("/account")) {
     if (!isLoggedIn) {
-      const loginUrl = new URL("/auth/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
+      const loginUrl = new URL("/auth/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
       return NextResponse.redirect(loginUrl);
     }
   }
 
-  // Protect /admin/* routes (basic check — role verified server-side)
-  if (pathname.startsWith("/admin")) {
+  // Protect /admin/* routes
+  if (nextUrl.pathname.startsWith("/admin")) {
     if (!isLoggedIn) {
-      const loginUrl = new URL("/auth/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
+      const loginUrl = new URL("/auth/login", req.url);
+      loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
       return NextResponse.redirect(loginUrl);
+    }
+    if (role !== "admin") {
+      return NextResponse.redirect(new URL("/", req.url));
     }
   }
 
   // Redirect logged-in users away from auth pages
-  if (pathname.startsWith("/auth/") && isLoggedIn) {
-    return NextResponse.redirect(new URL("/account", request.url));
+  if (nextUrl.pathname.startsWith("/auth/") && isLoggedIn) {
+    return NextResponse.redirect(new URL("/account", req.url));
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
-  matcher: ["/account/:path*", "/admin/:path*", "/auth/:path*"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

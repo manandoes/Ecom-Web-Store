@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Check, Package, Truck, MapPin } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-export default function OrderConfirmationPage() {
+function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const orderNumber = searchParams.get("order") || "LC-2026-00001";
 
@@ -126,5 +127,21 @@ export default function OrderConfirmationPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+function OrderConfirmationFallback() {
+  return (
+    <div className="pt-[72px] min-h-screen bg-[var(--color-lumina-cream)] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-[var(--color-lumina-gold)] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+export default function OrderConfirmationPage() {
+  return (
+    <Suspense fallback={<OrderConfirmationFallback />}>
+      <OrderConfirmationContent />
+    </Suspense>
   );
 }
