@@ -18,7 +18,7 @@ export default async function AdminAnalyticsPage() {
   const totalProducts = totalProductsResult[0].count;
 
   const totalRevenueResult = await db.select({
-    sum: sql<number>`sum(CAST(${orders.totalAmount} AS DECIMAL))`
+    sum: sql<number>`sum(CAST(${orders.total} AS DECIMAL))`
   }).from(orders).where(eq(orders.status, "delivered")); // Only count delivered for revenue
   const totalRevenue = totalRevenueResult[0].sum || 0;
 
