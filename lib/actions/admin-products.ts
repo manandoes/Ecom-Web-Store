@@ -68,7 +68,7 @@ export async function updateProductAction(id: string, data: any) {
           data.images.map((img: any) => ({
             productId: id,
             url: img.url,
-            alt: img.alt || data.name,
+            altText: img.altText || img.alt || data.name,
             isPrimary: img.isPrimary || false,
           }))
         );
@@ -85,8 +85,7 @@ export async function updateProductAction(id: string, data: any) {
             name: v.name,
             sku: v.sku,
             price: v.price.toString(),
-            compareAtPrice: v.compareAtPrice ? v.compareAtPrice.toString() : null,
-            stock: v.stock,
+            stockQty: v.stockQty ?? v.stock ?? 0,
           }))
         );
       }
