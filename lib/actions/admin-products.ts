@@ -9,10 +9,12 @@ export async function createProductAction(data: any) {
   try {
     const [product] = await db.insert(products).values({
       name: data.name,
+      slug: data.slug,
+      basePrice: data.basePrice?.toString(),
       description: data.description,
       categoryId: data.categoryId,
       isFeatured: data.isFeatured,
-      isActive: data.isActive,
+      status: data.isActive ? "active" : "draft",
     }).returning();
 
     if (data.images && data.images.length > 0) {
@@ -20,7 +22,7 @@ export async function createProductAction(data: any) {
         data.images.map((img: any) => ({
           productId: product.id,
           url: img.url,
-          alt: img.alt || data.name,
+          altText: img.altText || img.alt || data.name,
           isPrimary: img.isPrimary || false,
         }))
       );
@@ -33,8 +35,7 @@ export async function createProductAction(data: any) {
           name: v.name,
           sku: v.sku,
           price: v.price.toString(),
-          compareAtPrice: v.compareAtPrice ? v.compareAtPrice.toString() : null,
-          stock: v.stock,
+          stockQty: v.stockQty ?? v.stock ?? 0,
         }))
       );
     }
@@ -55,7 +56,7 @@ export async function updateProductAction(id: string, data: any) {
       description: data.description,
       categoryId: data.categoryId,
       isFeatured: data.isFeatured,
-      isActive: data.isActive,
+      status: data.isActive ? "active" : "draft",
       updatedAt: new Date(),
     }).where(eq(products.id, id));
 
