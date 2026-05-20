@@ -19,21 +19,19 @@ export const HeroSection: FC = () => {
       <div className="absolute inset-0 bg-[rgba(26,20,16,0.45)]" />
 
       {/* Content */}
-      <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <div className="relative z-10 text-center w-full">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           <h1
-            className="text-white text-5xl sm:text-7xl lg:text-[88px] leading-[1.0] tracking-tight"
+            className="text-white text-5xl sm:text-7xl lg:text-[88px] leading-[1.05] tracking-tight"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Handcrafted
-            <br />
-            <em>Scented</em>
-            <br />
-            Candles
+            Handcrafted <br/>
+            <em>Scented</em> 
+            <br/>Candles
           </h1>
         </motion.div>
 
@@ -41,10 +39,10 @@ export const HeroSection: FC = () => {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="text-white/80 text-[17px] mt-6 max-w-md mx-auto text-wrap-normal"
+          className="text-white/80 text-[17px] mt-6 mx-auto"
           style={{ fontFamily: "var(--font-body)" }}
         >
-          Small-batch candles poured with natural waxes & premium fragrance oils. Made in India.
+          Small-batch candles poured with natural waxes & <br/> premium fragrance oils. Made in India.
         </motion.p>
 
         <motion.div

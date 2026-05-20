@@ -43,7 +43,7 @@ const mini: Testimonial[] = [
 export const TestimonialSection: FC = () => {
   return (
     <section className="bg-[var(--color-lumina-dark)] py-20 lg:py-28">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10">
+      <div className="w-full mx-auto px-4 sm:px-6 lg:px-10">
         {/* Eyebrow */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -68,21 +68,21 @@ export const TestimonialSection: FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.2 }}
-          className="max-w-3xl mx-auto text-center mb-16"
+          className="w-full mx-auto text-center mb-16 px-4"
         >
           <Quote className="w-10 h-10 text-[var(--color-lumina-gold)] mx-auto mb-6 opacity-40" />
           <p
-            className="text-white text-xl lg:text-[28px] leading-relaxed italic mb-6"
+            className="text-white text-lg lg:text-[28px] leading-relaxed italic mb-6 w-full mx-auto"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            &ldquo;{featured.quote}&rdquo;
+            &ldquo;{featured.quote}&rdquo; 
           </p>
           <div className="flex items-center justify-center gap-1 mb-3">
             {Array.from({ length: featured.rating }).map((_, i) => (
               <Star
-                key={i}
+                key={i} 
                 className="w-4 h-4 fill-[var(--color-lumina-gold)] text-[var(--color-lumina-gold)]"
-              />
+              /> 
             ))}
           </div>
           <p className="text-[var(--color-lumina-cream)] text-sm font-medium">

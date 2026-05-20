@@ -17,7 +17,7 @@ export const Footer: FC = () => {
     <footer className="bg-[var(--color-lumina-dark)] text-[var(--color-lumina-text-muted)]">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10 py-16 lg:py-24">
         {/* Top section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-8">
           {/* Brand */}
           <div className="lg:col-span-2">
             <Link

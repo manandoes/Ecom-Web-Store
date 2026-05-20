@@ -20,7 +20,7 @@ export const NewsletterSection: FC = () => {
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        className="relative z-10 max-w-xl mx-auto text-center px-4"
+        className="relative z-10 w-full mx-auto text-center px-4"
       >
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--color-lumina-text-muted)] mb-3">
           Newsletter
