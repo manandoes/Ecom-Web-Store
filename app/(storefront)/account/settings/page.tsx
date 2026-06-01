@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { User, Mail, Lock, Phone } from "lucide-react";
 
 export default function SettingsPage() {
-  const [name, setName] = useState("Sarah Johnson");
-  const [email] = useState("sarah@example.com");
-  const [phone, setPhone] = useState("+91 98765 43210");
+  const { data: session } = useSession();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    if (session?.user) {
+      setName(session.user.name ?? "");
+      setEmail(session.user.email ?? "");
+    }
+  }, [session]);
 
   return (
     <div>

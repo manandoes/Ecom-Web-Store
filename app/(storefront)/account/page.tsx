@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { Package, Heart, MapPin, ChevronRight } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 export default function AccountDashboardPage() {
-  // Demo data — will be replaced with server data
-  const user = { name: "Sarah", email: "sarah@example.com" };
+  const { data: session } = useSession();
+  const user = {
+    name: session?.user?.name ?? "there",
+    email: session?.user?.email ?? "",
+  };
 
   return (
     <div>
