@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { payments, orders } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { updateOrderStatus } from "@/lib/db/queries/orders";
+import { sendAdminOrderEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,6 +59,25 @@ export async function POST(req: NextRequest) {
 
     // Update order status
     await updateOrderStatus(ourOrderId, "confirmed");
+
+    // Notify admin
+    const confirmedOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, ourOrderId),
+      with: { items: true },
+    });
+    if (confirmedOrder) {
+      sendAdminOrderEmail({
+        orderNumber: confirmedOrder.orderNumber,
+        total: confirmedOrder.total,
+        customerEmail: confirmedOrder.email,
+        items: confirmedOrder.items.map((i: any) => ({
+          productName: i.productName,
+          variantName: i.variantName,
+          quantity: i.quantity,
+          lineTotal: i.lineTotal,
+        })),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {

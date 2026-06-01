@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { createOrder } from "@/lib/db/queries/orders";
 import { clearCart, getCartWithItems } from "@/lib/db/queries/cart";
 import { productVariants, discountCodes } from "@/lib/db/schema";
-import { eq, and, gt, or, isNull, sql } from "drizzle-orm";
+import { eq, and, gt, or, isNull, sql, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
 import { checkoutRateLimit } from "@/lib/redis/ratelimit";
 import { sendOrderConfirmationEmail } from "@/lib/emails/resend";
@@ -34,11 +34,15 @@ export async function validateCheckoutAction(formData: {
       return { error: "Your cart is empty" };
     }
 
-    // Stock validation
+    // Stock validation — single batch query instead of N per-item queries
+    const variantIds = cart.items.map((item) => item.variantId);
+    const variants = await db.query.productVariants.findMany({
+      where: inArray(productVariants.id, variantIds),
+    });
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
+
     for (const item of cart.items) {
-      const variant = await db.query.productVariants.findFirst({
-        where: eq(productVariants.id, item.variantId),
-      });
+      const variant = variantMap.get(item.variantId);
       if (!variant || variant.stockQty < item.quantity) {
         return {
           error: `Insufficient stock for ${item.variant?.product?.name || "an item"}`,

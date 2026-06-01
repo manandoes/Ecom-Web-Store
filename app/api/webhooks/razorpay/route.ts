@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import { payments, orders } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { sendAdminOrderEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,11 +46,30 @@ export async function POST(req: NextRequest) {
           .update(payments)
           .set({ status: "captured", razorpayPaymentId: paymentEntity.id })
           .where(eq(payments.id, internalPayment.id));
-        
+
         await db
           .update(orders)
           .set({ status: "confirmed" })
           .where(eq(orders.id, internalPayment.orderId));
+
+        // Notify admin — fire and forget
+        const confirmedOrder = await db.query.orders.findFirst({
+          where: eq(orders.id, internalPayment.orderId),
+          with: { items: true },
+        });
+        if (confirmedOrder) {
+          sendAdminOrderEmail({
+            orderNumber: confirmedOrder.orderNumber,
+            total: confirmedOrder.total,
+            customerEmail: confirmedOrder.email,
+            items: (confirmedOrder.items as any[]).map((i) => ({
+              productName: i.productName,
+              variantName: i.variantName,
+              quantity: i.quantity,
+              lineTotal: i.lineTotal,
+            })),
+          });
+        }
       }
     } else if (event === "payment.failed") {
       const internalPayment = await db.query.payments.findFirst({

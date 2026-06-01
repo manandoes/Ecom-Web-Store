@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,7 +18,7 @@ import {
 const adminNav = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/admin/orders", label: "Orders", icon: ShoppingCart, badge: true },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/discounts", label: "Discounts", icon: Tag },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
@@ -31,6 +31,24 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchPendingCount() {
+      try {
+        const res = await fetch("/api/v1/admin/orders/pending-count");
+        if (res.ok) {
+          const data = await res.json();
+          setPendingCount(data.count || 0);
+        }
+      } catch {
+        // silently ignore
+      }
+    }
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0f0f10] text-[#e8e8e8] flex">
@@ -66,6 +84,7 @@ export default function AdminLayout({
             const isActive =
               pathname === item.href ||
               (item.href !== "/admin" && pathname.startsWith(item.href));
+            const showBadge = item.badge && pendingCount > 0;
 
             return (
               <Link
@@ -77,8 +96,24 @@ export default function AdminLayout({
                     : "text-[#8b8b8b] hover:text-white hover:bg-[#1f1f23]"
                 }`}
               >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                {sidebarOpen && <span>{item.label}</span>}
+                <div className="relative shrink-0">
+                  <item.icon className="w-4 h-4" />
+                  {showBadge && !sidebarOpen && (
+                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-amber-500 text-[#0f0f10] text-[9px] font-bold flex items-center justify-center">
+                      {pendingCount > 9 ? "9+" : pendingCount}
+                    </span>
+                  )}
+                </div>
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                    {showBadge && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-full bg-amber-500 text-[#0f0f10] text-[10px] font-bold leading-none">
+                        {pendingCount > 99 ? "99+" : pendingCount}
+                      </span>
+                    )}
+                  </>
+                )}
               </Link>
             );
           })}

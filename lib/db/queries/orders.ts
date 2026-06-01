@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { orders, orderItems, addresses, payments, productVariants } from "@/lib/db/schema";
-import { eq, desc, and, sql, gte, lte, count, sum } from "drizzle-orm";
+import { eq, desc, and, sql, gte, lte, count, sum, inArray } from "drizzle-orm";
 import { generateOrderNumber } from "@/lib/utils/order-number";
 
 interface CreateOrderInput {
@@ -91,14 +91,22 @@ export async function createOrder(input: CreateOrderInput) {
       pinCode: input.shippingAddress.pinCode,
     });
 
-    // Deduct stock
+    // Deduct stock — guard ensures we never go negative (prevents oversell race condition)
     for (const item of input.items) {
-      await tx
+      const [updated] = await tx
         .update(productVariants)
-        .set({
-          stockQty: sql`${productVariants.stockQty} - ${item.quantity}`,
-        })
-        .where(eq(productVariants.id, item.variantId));
+        .set({ stockQty: sql`${productVariants.stockQty} - ${item.quantity}` })
+        .where(
+          and(
+            eq(productVariants.id, item.variantId),
+            gte(productVariants.stockQty, item.quantity)
+          )
+        )
+        .returning({ id: productVariants.id });
+
+      if (!updated) {
+        throw new Error(`Insufficient stock for a cart item. Please review your cart.`);
+      }
     }
 
     return order;
